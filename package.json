@@ -8,13 +8,16 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "check": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run src",
+    "test": "npm run check && npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "typescript": "latest",
     "vite": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0"
+    "@playwright/test": "^1.60.0",
+    "vitest": "^4.1.6"
   }
 }
