@@ -96,12 +96,18 @@ const MONEY = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR
 const PERCENT = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
 const DECIMAL = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 6 });
 const STORAGE_KEY = 'tradeviz.csv.v1';
+const PRICE_OVERRIDES_KEY = 'tradeviz.priceOverrides.v1';
 
 type StoredCsv = {
   version: 1;
   fileName: string;
   text: string;
   savedAt: string;
+};
+
+type CurrentDataset = {
+  transactions: Transaction[];
+  fileName: string;
 };
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -111,54 +117,58 @@ if (!app) {
 }
 
 app.innerHTML = `
-  <div class="app-shell">
-    <header class="hero">
-      <nav class="topbar" aria-label="Resumen de la aplicación">
-        <a class="brand" href="#app" aria-label="TradeViz inicio"><span class="brand-mark">TV</span><span>TradeViz</span></a>
-        <span class="privacy-pill">100% local · sin backend</span>
-      </nav>
-      <section class="hero-grid" aria-labelledby="hero-title">
-        <div class="hero-content">
-          <p class="eyebrow">Dashboard móvil para tus inversiones</p>
-          <h1 id="hero-title">Visualiza tu cartera desde un CSV privado.</h1>
-          <p class="hero-copy">Importa tus movimientos de Trade Republic o un CSV similar y revisa posiciones, P&L, dividendos y concentración. Todo se calcula en tu dispositivo: ideal para abrirlo desde GitHub Pages en tu Pixel 6a.</p>
-          <div class="hero-actions">
-            <label class="primary-action" for="csv-input">Subir CSV</label>
-            <a class="ghost-action" href="#empty-state">Ver métricas</a>
-            <button id="clear-data" class="danger-action hidden" type="button">Limpiar datos</button>
+  <div class="phone-stage">
+    <div class="app-shell">
+      <header class="mobile-chrome">
+        <nav class="topbar" aria-label="Resumen de la aplicación">
+          <a class="brand" href="#app" aria-label="TradeViz inicio"><span class="brand-mark">TV</span><span>TradeViz</span></a>
+          <div class="top-actions">
+            <span class="privacy-pill">100% local</span>
+            <button id="clear-data" class="icon-button hidden" type="button" aria-label="Limpiar datos">🧹</button>
           </div>
-          <div class="trust-row" aria-label="Características">
-            <span>🔒 Datos locales</span>
-            <span>📱 Optimizado móvil</span>
-            <span>⚡ Sin dependencias externas</span>
+        </nav>
+      </header>
+      <main class="app-viewport">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-content app-card">
+            <p class="eyebrow">Dashboard móvil para tus inversiones</p>
+            <h1 id="hero-title">Visualiza tu cartera desde un CSV privado.</h1>
+            <p class="hero-copy">Importa tus movimientos de Trade Republic o un CSV similar y conviértelos en una experiencia de app: pestañas, acciones rápidas, edición de precios y navegación táctil.</p>
+            <div class="hero-actions">
+              <label class="primary-action" for="csv-input">Subir CSV</label>
+              <a class="ghost-action" href="#empty-state">Ver demo</a>
+            </div>
+            <div class="trust-row" aria-label="Características">
+              <span>🔒 Datos locales</span>
+              <span>📱 App embebida</span>
+              <span>✏️ Precios editables</span>
+            </div>
           </div>
-        </div>
-        <label class="upload-card" for="csv-input">
-          <span class="upload-icon" aria-hidden="true">📄</span>
-          <strong>Seleccionar CSV</strong>
-          <small>Compatible con coma o punto y coma, importes ES/EN y columnas parciales. Se guarda en este navegador para que no tengas que volver a subirlo.</small>
-          <input id="csv-input" type="file" accept=".csv,text/csv" />
-        </label>
-      </section>
-    </header>
-    <main>
-      <section id="empty-state" class="panel empty">
-        <div class="section-heading">
-          <p class="eyebrow">Antes de importar</p>
-          <h2>Qué podrás analizar</h2>
-        </div>
-        <div class="feature-grid">
-          <article><span aria-hidden="true">📊</span><b>KPIs claros</b><small>Aportaciones, ventas, dividendos, comisiones, impuestos y P&L estimado.</small></article>
-          <article><span aria-hidden="true">🧾</span><b>FIFO estimado</b><small>Posiciones abiertas por símbolo, coste pendiente y último precio incluido en el CSV.</small></article>
-          <article><span aria-hidden="true">🎯</span><b>Concentración</b><small>Asignación por clase de activo y ranking de posiciones con barras responsive.</small></article>
-          <article><span aria-hidden="true">🔎</span><b>Auditoría rápida</b><small>Tabla completa, buscable y usable en pantallas pequeñas.</small></article>
-          <article><span aria-hidden="true">💾</span><b>Persistencia local</b><small>El último CSV queda guardado en localStorage y puedes limpiarlo cuando quieras.</small></article>
-        </div>
-      </section>
-      <section id="format-warning" class="notice hidden" aria-live="polite"></section>
-      <section id="dashboard" class="hidden"></section>
-    </main>
-    <footer>Hecho para GitHub Pages · Sin backend · Sin tracking</footer>
+          <label class="upload-card app-card" for="csv-input">
+            <span class="upload-icon" aria-hidden="true">📄</span>
+            <strong>Seleccionar CSV</strong>
+            <small>Compatible con coma o punto y coma, importes ES/EN y columnas parciales. Se guarda en este navegador para que no tengas que volver a subirlo.</small>
+            <input id="csv-input" type="file" accept=".csv,text/csv" />
+          </label>
+        </section>
+        <section id="empty-state" class="panel empty app-view">
+          <div class="section-heading">
+            <p class="eyebrow">Antes de importar</p>
+            <h2>Qué podrás analizar</h2>
+          </div>
+          <div class="feature-grid">
+            <article><span aria-hidden="true">📊</span><b>Inicio ejecutivo</b><small>KPIs, P&L, aportaciones, dividendos y costes en tarjetas táctiles.</small></article>
+            <article><span aria-hidden="true">🧭</span><b>Navegación tipo app</b><small>Menús inferiores, pestañas y accesos rápidos para saltar entre secciones.</small></article>
+            <article><span aria-hidden="true">✏️</span><b>Precio editable</b><small>Actualiza manualmente el precio de las posiciones abiertas y recalcula la cartera.</small></article>
+            <article><span aria-hidden="true">🎯</span><b>Concentración</b><small>Asignación por clase de activo y ranking de posiciones con barras responsive.</small></article>
+            <article><span aria-hidden="true">💾</span><b>Persistencia local</b><small>El último CSV y tus precios personalizados quedan guardados en este navegador.</small></article>
+          </div>
+        </section>
+        <section id="format-warning" class="notice hidden" aria-live="polite"></section>
+        <section id="dashboard" class="hidden"></section>
+      </main>
+      <footer>Hecho para GitHub Pages · Sin backend · Sin tracking</footer>
+    </div>
   </div>
 `;
 
@@ -167,6 +177,7 @@ const dashboard = requireElement<HTMLElement>('#dashboard');
 const emptyState = requireElement<HTMLElement>('#empty-state');
 const warning = requireElement<HTMLElement>('#format-warning');
 const clearDataButton = requireElement<HTMLButtonElement>('#clear-data');
+let currentDataset: CurrentDataset | null = null;
 
 input.addEventListener('change', async (event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
@@ -186,6 +197,7 @@ input.addEventListener('change', async (event) => {
 
 clearDataButton.addEventListener('click', () => {
   clearStoredCsv();
+  savePriceOverrides({});
   resetDashboard();
   warning.classList.remove('hidden', 'notice-error');
   warning.innerHTML = '<strong>Datos limpiados.</strong> Ya puedes subir un CSV nuevo cuando quieras.';
@@ -202,7 +214,8 @@ function importCsvText(text: string, fileName: string, options: { persist: boole
     throw new Error('No se encontraron filas con fecha o fecha/hora válidas.');
   }
 
-  const analysis = analyse(transactions);
+  currentDataset = { transactions, fileName };
+  const analysis = applyPriceOverrides(analyse(transactions), loadPriceOverrides());
   let storageWarning = '';
 
   if (options.persist) {
@@ -210,8 +223,7 @@ function importCsvText(text: string, fileName: string, options: { persist: boole
   }
 
   renderDashboard(analysis, fileName);
-  attachTransactionFilter();
-  attachClearButtons();
+  attachDashboardInteractions();
   renderWarning(missing, transactions.length, options.restored ? 'restored' : 'loaded', storageWarning);
   clearDataButton.classList.remove('hidden');
 
@@ -268,11 +280,77 @@ function clearStoredCsv(): void {
   }
 }
 
+
+function loadPriceOverrides(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(PRICE_OVERRIDES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(parsed).filter(([, value]) => typeof value === 'number' && Number.isFinite(value) && value >= 0)) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+function savePriceOverrides(overrides: Record<string, number>): void {
+  try {
+    localStorage.setItem(PRICE_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch {
+    // La edición sigue funcionando en memoria aunque el navegador bloquee localStorage.
+  }
+}
+
+function applyPriceOverrides(analysis: Analysis, overrides: Record<string, number>): Analysis {
+  const positions = analysis.positions.map((position) => {
+    const override = overrides[position.symbol];
+    if (override === undefined) return position;
+
+    const value = position.shares * override;
+    const unrealized = value - position.invested;
+    return {
+      ...position,
+      lastPrice: override,
+      lastDate: 'manual',
+      value,
+      unrealized,
+      returnPct: position.invested ? (unrealized / position.invested) * 100 : 0,
+    };
+  }).sort((a, b) => b.value - a.value);
+
+  const currentValue = positions.reduce((sum, position) => sum + position.value, 0);
+  const investedOpen = positions.reduce((sum, position) => sum + position.invested, 0);
+  const unrealizedPnl = currentValue - investedOpen;
+  const totalPnl = analysis.totals.realizedPnl + unrealizedPnl + analysis.totals.dividends + analysis.totals.perks;
+  const denominator = analysis.totals.buys || analysis.totals.deposits || 1;
+
+  return {
+    ...analysis,
+    positions,
+    totals: {
+      ...analysis.totals,
+      currentValue,
+      investedOpen,
+      unrealizedPnl,
+      totalPnl,
+      totalReturnPct: (totalPnl / denominator) * 100,
+    },
+    byAssetClass: groupPositions(positions, (position) => position.assetClass),
+    bySymbol: positions.map((position) => ({ label: position.name || position.symbol, value: position.value, subtitle: position.symbol })),
+  };
+}
+
+function rerenderFromCurrentDataset(): void {
+  if (!currentDataset) return;
+  renderDashboard(applyPriceOverrides(analyse(currentDataset.transactions), loadPriceOverrides()), currentDataset.fileName);
+  attachDashboardInteractions();
+}
+
 function resetDashboard(): void {
   dashboard.classList.add('hidden');
   dashboard.innerHTML = '';
   emptyState.classList.remove('hidden');
   clearDataButton.classList.add('hidden');
+  currentDataset = null;
 }
 
 function hideWarning(): void {
@@ -578,42 +656,96 @@ function renderDashboard(analysis: Analysis, fileName: string): void {
   emptyState.classList.add('hidden');
   dashboard.classList.remove('hidden');
   const { totals } = analysis;
+  const bestPosition = analysis.positions[0];
+  const cashEfficiency = totals.netCashAdded ? (totals.currentValue / Math.max(1, totals.netCashAdded)) * 100 : 0;
 
   dashboard.innerHTML = `
-    <div class="section-title">
-      <div>
-        <p class="eyebrow">Archivo importado</p>
-        <h2>${escapeHtml(fileName)}</h2>
-      </div>
-      <div class="section-actions">
-        <p class="muted">La valoración usa el último precio disponible en el CSV, no cotizaciones en tiempo real.</p>
-        <button class="danger-action compact" type="button" data-clear-csv>Limpiar datos</button>
-      </div>
+    <div class="app-dashboard">
+      <section class="screen-hero app-card" id="screen-home" data-screen="inicio">
+        <div>
+          <p class="eyebrow">Archivo importado</p>
+          <h2>${escapeHtml(fileName)}</h2>
+          <p class="muted">La valoración usa el último precio disponible en el CSV o el precio manual que edites para cada posición.</p>
+        </div>
+        <div class="portfolio-orb" aria-label="Valor total"><span>${money(totals.currentValue)}</span><small>Valor cartera</small></div>
+      </section>
+
+      <nav class="quick-menu" aria-label="Acciones rápidas">
+        <button class="quick-chip active" type="button" data-open-screen="inicio">🏠 Inicio</button>
+        <button class="quick-chip" type="button" data-open-screen="cartera">💼 Cartera</button>
+        <button class="quick-chip" type="button" data-open-screen="analisis">📈 Análisis</button>
+        <button class="quick-chip" type="button" data-open-screen="actividad">🧾 Actividad</button>
+        <button class="quick-chip" type="button" data-open-screen="ajustes">⚙️ Ajustes</button>
+      </nav>
+
+      <section class="summary-strip" aria-label="Resumen rápido">
+        <span><b>${analysis.transactions.length}</b> transacciones</span>
+        <span><b>${analysis.positions.length}</b> posiciones</span>
+        <span><b>${totals.tradeCount}</b> movimientos trading</span>
+      </section>
+
+      <section class="app-screen" data-app-screen="inicio">
+        <div class="hero-metrics">
+          ${kpi('Valor posiciones', money(totals.currentValue), 'Abiertas al precio actual')}
+          ${kpi('P&L total estimado', money(totals.totalPnl), `${pct(totals.totalReturnPct)} sobre compras`, totals.totalPnl)}
+          ${kpi('Aportado neto', money(totals.netCashAdded), `${money(totals.deposits)} entradas · ${money(totals.withdrawals)} salidas`)}
+        </div>
+        <div class="insight-grid">
+          <article class="panel insight-card"><span>🔥</span><b>${escapeHtml(bestPosition?.name ?? 'Sin posiciones')}</b><small>${bestPosition ? `Mayor posición: ${money(bestPosition.value)} · ${pct(bestPosition.returnPct)}` : 'Sube movimientos de compra para ver tu cartera.'}</small></article>
+          <article class="panel insight-card"><span>💸</span><b>${money(totals.dividends + totals.perks)}</b><small>Dividendos y perks recibidos.</small></article>
+          <article class="panel insight-card"><span>🧮</span><b>${pct(cashEfficiency)}</b><small>Valor actual sobre aportación neta.</small></article>
+        </div>
+      </section>
+
+      <section class="app-screen hidden" data-app-screen="cartera">
+        <div class="section-title compact-title">
+          <div><p class="eyebrow">Cartera</p><h3>Posiciones abiertas</h3></div>
+          <span class="pill-note">Edita precio y recalcula</span>
+        </div>
+        ${editablePositions(analysis.positions)}
+      </section>
+
+      <section class="app-screen hidden" data-app-screen="analisis">
+        <section class="kpi-grid dense">
+          ${kpi('Invertido abierto', money(totals.investedOpen), 'Coste FIFO pendiente')}
+          ${kpi('P&L realizado', money(totals.realizedPnl), `${analysis.realizedTrades.length} ventas`, totals.realizedPnl)}
+          ${kpi('P&L no realizado', money(totals.unrealizedPnl), 'Sobre posiciones abiertas', totals.unrealizedPnl)}
+          ${kpi('Costes', money(totals.fees + totals.taxes), `${money(totals.fees)} comisiones · ${money(totals.taxes)} impuestos`, -(totals.fees + totals.taxes))}
+        </section>
+        <section class="charts-grid">
+          <article class="panel"><h3>Asignación por clase de activo</h3>${donutChart(analysis.byAssetClass)}</article>
+          <article class="panel"><h3>Concentración por posición</h3>${barList(analysis.bySymbol.slice(0, 10))}</article>
+          <article class="panel wide"><h3>Evolución de cartera</h3>${lineChart(analysis.timeline, ['marketValue', 'investedOpen', 'realizedPnl'])}</article>
+          <article class="panel wide"><h3>Actividad mensual</h3>${stackedBars(analysis.monthly)}</article>
+        </section>
+      </section>
+
+      <section class="app-screen hidden" data-app-screen="actividad">
+        <section class="panel"><h3>Ganancias/pérdidas realizadas por venta</h3>${realizedTable(analysis.realizedTrades)}</section>
+        <section class="panel"><h3>Transacciones importadas</h3>${transactionsTable(analysis.transactions)}</section>
+      </section>
+
+      <section class="app-screen hidden" data-app-screen="ajustes">
+        <section class="panel settings-panel">
+          <p class="eyebrow">Ajustes locales</p>
+          <h3>Datos y experiencia</h3>
+          <div class="settings-actions">
+            <label class="primary-action" for="csv-input">Importar otro CSV</label>
+            <button class="ghost-button" type="button" data-reset-prices>Restablecer precios manuales</button>
+            <button class="danger-action compact" type="button" data-clear-csv>Limpiar datos</button>
+          </div>
+          <p class="muted">Todo vive en tu navegador: CSV en localStorage y precios manuales por símbolo.</p>
+        </section>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Navegación principal">
+        <button class="active" type="button" data-open-screen="inicio"><span>🏠</span>Inicio</button>
+        <button type="button" data-open-screen="cartera"><span>💼</span>Cartera</button>
+        <button type="button" data-open-screen="analisis"><span>📈</span>Análisis</button>
+        <button type="button" data-open-screen="actividad"><span>🧾</span>Actividad</button>
+        <button type="button" data-open-screen="ajustes"><span>⚙️</span>Ajustes</button>
+      </nav>
     </div>
-    <section class="summary-strip" aria-label="Resumen rápido">
-      <span><b>${analysis.transactions.length}</b> transacciones</span>
-      <span><b>${analysis.positions.length}</b> posiciones</span>
-      <span><b>${totals.tradeCount}</b> movimientos trading</span>
-    </section>
-    <section class="kpi-grid">
-      ${kpi('Valor posiciones', money(totals.currentValue), 'Abiertas al último precio CSV')}
-      ${kpi('Invertido abierto', money(totals.investedOpen), 'Coste FIFO pendiente')}
-      ${kpi('P&L total estimado', money(totals.totalPnl), `${pct(totals.totalReturnPct)} sobre compras`, totals.totalPnl)}
-      ${kpi('Aportado neto', money(totals.netCashAdded), `${money(totals.deposits)} entradas · ${money(totals.withdrawals)} salidas`)}
-      ${kpi('P&L realizado', money(totals.realizedPnl), `${analysis.realizedTrades.length} ventas`, totals.realizedPnl)}
-      ${kpi('P&L no realizado', money(totals.unrealizedPnl), 'Sobre posiciones abiertas', totals.unrealizedPnl)}
-      ${kpi('Dividendos y perks', money(totals.dividends + totals.perks), `${money(totals.dividends)} dividendos`)}
-      ${kpi('Costes', money(totals.fees + totals.taxes), `${money(totals.fees)} comisiones · ${money(totals.taxes)} impuestos`, -(totals.fees + totals.taxes))}
-    </section>
-    <section class="charts-grid">
-      <article class="panel"><h3>Asignación por clase de activo</h3>${donutChart(analysis.byAssetClass)}</article>
-      <article class="panel"><h3>Concentración por posición</h3>${barList(analysis.bySymbol.slice(0, 10))}</article>
-      <article class="panel wide"><h3>Evolución de cartera</h3>${lineChart(analysis.timeline, ['marketValue', 'investedOpen', 'realizedPnl'])}</article>
-      <article class="panel wide"><h3>Actividad mensual</h3>${stackedBars(analysis.monthly)}</article>
-    </section>
-    <section class="panel"><h3>Posiciones abiertas</h3>${positionsTable(analysis.positions)}</section>
-    <section class="panel"><h3>Ganancias/pérdidas realizadas por venta</h3>${realizedTable(analysis.realizedTrades)}</section>
-    <section class="panel"><h3>Transacciones importadas</h3>${transactionsTable(analysis.transactions)}</section>
   `;
 }
 
@@ -679,18 +811,33 @@ function stackedBars(data: MonthlyPoint[]): string {
   }).join('')}</div>`;
 }
 
-function positionsTable(positions: Position[]): string {
+function editablePositions(positions: Position[]): string {
   if (!positions.length) return emptyChart('No hay posiciones abiertas.');
-  return table(['Activo', 'Símbolo', 'Clase', 'Participaciones', 'Invertido', 'Valor', 'P&L', 'Último precio'], positions.map((position) => [
-    position.name,
-    position.symbol,
-    position.assetClass,
-    decimals(position.shares),
-    money(position.invested),
-    money(position.value),
-    signed(position.unrealized),
-    `${money(position.lastPrice)} (${position.lastDate || 'sin fecha'})`,
-  ]));
+
+  return `<div class="position-cards">${positions.map((position) => `
+    <article class="position-card" data-symbol="${escapeHtml(position.symbol)}">
+      <div class="position-main">
+        <span class="asset-avatar">${escapeHtml((position.symbol || '?').slice(0, 2))}</span>
+        <div>
+          <b>${escapeHtml(position.name || position.symbol)}</b>
+          <small>${escapeHtml(position.symbol)} · ${escapeHtml(position.assetClass)} · ${decimals(position.shares)} uds.</small>
+        </div>
+        <strong>${money(position.value)}</strong>
+      </div>
+      <div class="position-stats">
+        <span><small>Invertido</small><b>${money(position.invested)}</b></span>
+        <span><small>P&L</small><b class="${position.unrealized > 0 ? 'positive' : position.unrealized < 0 ? 'negative' : ''}">${position.unrealized > 0 ? '+' : ''}${money(position.unrealized)}</b></span>
+        <span><small>Rent.</small><b class="${position.returnPct > 0 ? 'positive' : position.returnPct < 0 ? 'negative' : ''}">${pct(position.returnPct)}</b></span>
+      </div>
+      <form class="price-editor" data-price-form>
+        <label>Precio actual
+          <input type="number" min="0" step="0.000001" inputmode="decimal" value="${Number.isFinite(position.lastPrice) ? position.lastPrice : 0}" data-price-input="${escapeHtml(position.symbol)}" aria-label="Editar precio de ${escapeHtml(position.symbol)}" />
+        </label>
+        <button type="submit">Aplicar</button>
+        <small>Origen: ${escapeHtml(position.lastDate || 'sin fecha')}</small>
+      </form>
+    </article>
+  `).join('')}</div>`;
 }
 
 function realizedTable(trades: RealizedTrade[]): string {
@@ -713,10 +860,67 @@ function transactionsTable(transactions: Transaction[]): string {
   ]));
 }
 
+function attachDashboardInteractions(): void {
+  attachClearButtons();
+  attachTransactionFilter();
+  attachMobileNavigation();
+  attachPriceEditors();
+  attachResetPrices();
+}
+
 function attachClearButtons(): void {
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-clear-csv]')) {
     button.addEventListener('click', () => clearDataButton.click());
   }
+}
+
+function attachMobileNavigation(): void {
+  const openScreen = (target: string): void => {
+    for (const screen of document.querySelectorAll<HTMLElement>('[data-app-screen]')) {
+      screen.classList.toggle('hidden', screen.dataset.appScreen !== target);
+    }
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-open-screen]')) {
+      button.classList.toggle('active', button.dataset.openScreen === target);
+    }
+    document.querySelector<HTMLElement>('.app-dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-open-screen]')) {
+    button.addEventListener('click', () => openScreen(button.dataset.openScreen ?? 'inicio'));
+  }
+}
+
+function attachPriceEditors(): void {
+  for (const form of document.querySelectorAll<HTMLFormElement>('[data-price-form]')) {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const input = form.querySelector<HTMLInputElement>('[data-price-input]');
+      const symbol = input?.dataset.priceInput;
+      const nextPrice = Number(input?.value);
+      if (!symbol || !Number.isFinite(nextPrice) || nextPrice < 0) return;
+
+      const overrides = loadPriceOverrides();
+      overrides[symbol] = nextPrice;
+      savePriceOverrides(overrides);
+      rerenderFromCurrentDataset();
+      showInlineNotice(`Precio de ${symbol} actualizado a ${money(nextPrice)}.`);
+    });
+  }
+}
+
+function attachResetPrices(): void {
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-reset-prices]')) {
+    button.addEventListener('click', () => {
+      savePriceOverrides({});
+      rerenderFromCurrentDataset();
+      showInlineNotice('Precios manuales restablecidos.');
+    });
+  }
+}
+
+function showInlineNotice(message: string): void {
+  warning.classList.remove('hidden', 'notice-error');
+  warning.innerHTML = `<strong>${escapeHtml(message)}</strong>`;
 }
 
 function attachTransactionFilter(): void {
