@@ -47,3 +47,23 @@ test('guarda, restaura y limpia el último CSV en localStorage', async ({ page }
   await expect(page.getByRole('heading', { name: /Qué podrás analizar/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'movimientos.csv' })).toHaveCount(0);
 });
+
+
+test('permite editar el precio de una posición abierta', async ({ page }) => {
+  await page.goto('./');
+
+  await page.locator('#csv-input').setInputFiles({
+    name: 'movimientos.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(sampleCsv),
+  });
+
+  await page.locator('[data-open-screen="cartera"]').last().click();
+  await expect(page.getByLabel(/Editar precio de ACME/i)).toBeVisible();
+
+  await page.getByLabel(/Editar precio de ACME/i).fill('12');
+  await page.locator('[data-price-form]').getByRole('button', { name: /Aplicar/i }).click();
+
+  await expect(page.getByText(/Precio de ACME actualizado/i)).toBeVisible();
+  await expect(page.getByText('24,00 €').first()).toBeVisible();
+});
