@@ -7,11 +7,14 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "vite": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vite": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
 }
