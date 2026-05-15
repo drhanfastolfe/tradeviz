@@ -6,7 +6,7 @@ TradeViz es una aplicación web 100% frontend para visualizar CSVs de transaccio
 datetime,date,account_type,category,type,asset_class,name,symbol,shares,price,amount,fee,tax,currency,original_amount,original_currency,fx_rate,description,transaction_id,counterparty_name,counterparty_iban,payment_reference,mcc_code
 ```
 
-La app funciona de forma local en el navegador: el CSV se procesa con JavaScript en el dispositivo y no se sube a ningún servidor.
+La app funciona de forma local en el navegador: el CSV se procesa con JavaScript en el dispositivo, se guarda en `localStorage` para restaurarlo al recargar la página y no se sube a ningún servidor. Puedes usar **Limpiar datos** para borrar el CSV guardado antes de importar otro archivo.
 
 ## Visualizaciones incluidas
 
@@ -18,6 +18,7 @@ La app funciona de forma local en el navegador: el CSV se procesa con JavaScript
 - Evolución temporal de valor de mercado, coste abierto y P&L realizado.
 - Actividad mensual.
 - Tablas auditables de posiciones, ventas y transacciones.
+- Restauración automática del último CSV desde `localStorage` y botón para limpiar datos.
 
 > Nota: la valoración de posiciones usa el último precio encontrado en el CSV para cada símbolo. No consulta cotizaciones en tiempo real.
 

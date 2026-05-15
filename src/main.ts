@@ -95,6 +95,14 @@ const EPSILON = 0.000001;
 const MONEY = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
 const PERCENT = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
 const DECIMAL = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 6 });
+const STORAGE_KEY = 'tradeviz.csv.v1';
+
+type StoredCsv = {
+  version: 1;
+  fileName: string;
+  text: string;
+  savedAt: string;
+};
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -117,6 +125,7 @@ app.innerHTML = `
           <div class="hero-actions">
             <label class="primary-action" for="csv-input">Subir CSV</label>
             <a class="ghost-action" href="#empty-state">Ver métricas</a>
+            <button id="clear-data" class="danger-action hidden" type="button">Limpiar datos</button>
           </div>
           <div class="trust-row" aria-label="Características">
             <span>🔒 Datos locales</span>
@@ -127,7 +136,7 @@ app.innerHTML = `
         <label class="upload-card" for="csv-input">
           <span class="upload-icon" aria-hidden="true">📄</span>
           <strong>Seleccionar CSV</strong>
-          <small>Compatible con coma o punto y coma, importes ES/EN y columnas parciales.</small>
+          <small>Compatible con coma o punto y coma, importes ES/EN y columnas parciales. Se guarda en este navegador para que no tengas que volver a subirlo.</small>
           <input id="csv-input" type="file" accept=".csv,text/csv" />
         </label>
       </section>
@@ -143,6 +152,7 @@ app.innerHTML = `
           <article><span aria-hidden="true">🧾</span><b>FIFO estimado</b><small>Posiciones abiertas por símbolo, coste pendiente y último precio incluido en el CSV.</small></article>
           <article><span aria-hidden="true">🎯</span><b>Concentración</b><small>Asignación por clase de activo y ranking de posiciones con barras responsive.</small></article>
           <article><span aria-hidden="true">🔎</span><b>Auditoría rápida</b><small>Tabla completa, buscable y usable en pantallas pequeñas.</small></article>
+          <article><span aria-hidden="true">💾</span><b>Persistencia local</b><small>El último CSV queda guardado en localStorage y puedes limpiarlo cuando quieras.</small></article>
         </div>
       </section>
       <section id="format-warning" class="notice hidden" aria-live="polite"></section>
@@ -156,37 +166,126 @@ const input = requireElement<HTMLInputElement>('#csv-input');
 const dashboard = requireElement<HTMLElement>('#dashboard');
 const emptyState = requireElement<HTMLElement>('#empty-state');
 const warning = requireElement<HTMLElement>('#format-warning');
+const clearDataButton = requireElement<HTMLButtonElement>('#clear-data');
 
 input.addEventListener('change', async (event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
-  warning.classList.add('hidden');
-  warning.innerHTML = '';
+  hideWarning();
 
   try {
     const text = await file.text();
-    const { rows, headers } = parseCsv(text);
-    const missing = EXPECTED_COLUMNS.filter((column) => !headers.includes(column));
-    const transactions = rows.map(normalizeTransaction).filter((transaction) => transaction.date || transaction.datetime);
-
-    if (!transactions.length) {
-      throw new Error('No se encontraron filas con fecha o fecha/hora válidas.');
-    }
-
-    const analysis = analyse(transactions);
-    renderDashboard(analysis, file.name);
-    attachTransactionFilter();
-    renderWarning(missing, transactions.length);
-    dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    importCsvText(text, file.name, { persist: true, scroll: true });
   } catch (error) {
-    warning.classList.remove('hidden');
-    warning.classList.add('notice-error');
-    warning.innerHTML = `<strong>No se pudo leer el CSV.</strong> ${escapeHtml(error instanceof Error ? error.message : String(error))}`;
+    showCsvError(error);
   } finally {
     input.value = '';
   }
 });
+
+clearDataButton.addEventListener('click', () => {
+  clearStoredCsv();
+  resetDashboard();
+  warning.classList.remove('hidden', 'notice-error');
+  warning.innerHTML = '<strong>Datos limpiados.</strong> Ya puedes subir un CSV nuevo cuando quieras.';
+});
+
+restoreStoredCsv();
+
+function importCsvText(text: string, fileName: string, options: { persist: boolean; scroll: boolean; restored?: boolean }): void {
+  const { rows, headers } = parseCsv(text);
+  const missing = EXPECTED_COLUMNS.filter((column) => !headers.includes(column));
+  const transactions = rows.map(normalizeTransaction).filter((transaction) => transaction.date || transaction.datetime);
+
+  if (!transactions.length) {
+    throw new Error('No se encontraron filas con fecha o fecha/hora válidas.');
+  }
+
+  const analysis = analyse(transactions);
+  let storageWarning = '';
+
+  if (options.persist) {
+    storageWarning = saveCsvToStorage(text, fileName);
+  }
+
+  renderDashboard(analysis, fileName);
+  attachTransactionFilter();
+  attachClearButtons();
+  renderWarning(missing, transactions.length, options.restored ? 'restored' : 'loaded', storageWarning);
+  clearDataButton.classList.remove('hidden');
+
+  if (options.scroll) {
+    dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function restoreStoredCsv(): void {
+  const stored = loadStoredCsv();
+  if (!stored) return;
+
+  try {
+    importCsvText(stored.text, stored.fileName, { persist: false, scroll: false, restored: true });
+  } catch (error) {
+    clearStoredCsv();
+    showCsvError(error, 'No se pudo restaurar el CSV guardado.');
+  }
+}
+
+function saveCsvToStorage(text: string, fileName: string): string {
+  const stored: StoredCsv = { version: 1, fileName, text, savedAt: new Date().toISOString() };
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    return '';
+  } catch (error) {
+    return ` No se pudo guardar en localStorage: ${error instanceof Error ? error.message : String(error)}.`;
+  }
+}
+
+function loadStoredCsv(): StoredCsv | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<StoredCsv>;
+    if (parsed.version !== 1 || typeof parsed.text !== 'string' || typeof parsed.fileName !== 'string') {
+      throw new Error('El formato guardado no es compatible.');
+    }
+
+    return { version: 1, text: parsed.text, fileName: parsed.fileName || 'CSV guardado', savedAt: parsed.savedAt ?? '' };
+  } catch {
+    clearStoredCsv();
+    return null;
+  }
+}
+
+function clearStoredCsv(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Si el navegador bloquea localStorage, la limpieza visual sigue siendo suficiente.
+  }
+}
+
+function resetDashboard(): void {
+  dashboard.classList.add('hidden');
+  dashboard.innerHTML = '';
+  emptyState.classList.remove('hidden');
+  clearDataButton.classList.add('hidden');
+}
+
+function hideWarning(): void {
+  warning.classList.add('hidden');
+  warning.classList.remove('notice-error');
+  warning.innerHTML = '';
+}
+
+function showCsvError(error: unknown, prefix = 'No se pudo leer el CSV.'): void {
+  warning.classList.remove('hidden');
+  warning.classList.add('notice-error');
+  warning.innerHTML = `<strong>${escapeHtml(prefix)}</strong> ${escapeHtml(error instanceof Error ? error.message : String(error))}`;
+}
 
 function parseCsv(text: string): { headers: string[]; rows: CsvRow[] } {
   const normalized = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -466,11 +565,13 @@ function compressTimeline(timeline: TimelinePoint[]): TimelinePoint[] {
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function renderWarning(missing: string[], count: number): void {
+function renderWarning(missing: string[], count: number, mode: 'loaded' | 'restored', storageWarning = ''): void {
   warning.classList.remove('hidden', 'notice-error');
-  warning.innerHTML = missing.length
-    ? `<strong>CSV cargado con ${count} filas.</strong> Faltan columnas esperadas: ${missing.map(escapeHtml).join(', ')}. Se han usado las disponibles.`
-    : `<strong>CSV cargado correctamente.</strong> ${count} transacciones importadas.`;
+  const status = mode === 'restored' ? 'CSV restaurado desde este navegador' : 'CSV cargado y guardado en este navegador';
+  const details = missing.length
+    ? ` Faltan columnas esperadas: ${missing.map(escapeHtml).join(', ')}. Se han usado las disponibles.`
+    : '';
+  warning.innerHTML = `<strong>${status} con ${count} filas.</strong>${details}${escapeHtml(storageWarning)}`;
 }
 
 function renderDashboard(analysis: Analysis, fileName: string): void {
@@ -484,7 +585,10 @@ function renderDashboard(analysis: Analysis, fileName: string): void {
         <p class="eyebrow">Archivo importado</p>
         <h2>${escapeHtml(fileName)}</h2>
       </div>
-      <p class="muted">La valoración usa el último precio disponible en el CSV, no cotizaciones en tiempo real.</p>
+      <div class="section-actions">
+        <p class="muted">La valoración usa el último precio disponible en el CSV, no cotizaciones en tiempo real.</p>
+        <button class="danger-action compact" type="button" data-clear-csv>Limpiar datos</button>
+      </div>
     </div>
     <section class="summary-strip" aria-label="Resumen rápido">
       <span><b>${analysis.transactions.length}</b> transacciones</span>
@@ -607,6 +711,12 @@ function transactionsTable(transactions: Transaction[]): string {
     transaction.fee ? money(transaction.fee) : '',
     transaction.tax ? money(transaction.tax) : '',
   ]));
+}
+
+function attachClearButtons(): void {
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-clear-csv]')) {
+    button.addEventListener('click', () => clearDataButton.click());
+  }
 }
 
 function attachTransactionFilter(): void {
