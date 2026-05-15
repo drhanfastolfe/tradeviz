@@ -29,6 +29,17 @@ npm install
 npm run dev
 ```
 
+## Tests
+
+```bash
+npm run check
+npm run test:unit
+npm run test:e2e
+npm run test
+```
+
+Los cálculos de dominio (normalización CSV, FIFO, P&L y precios manuales) están cubiertos por tests unitarios con Vitest.
+
 ## Build de producción
 
 ```bash
