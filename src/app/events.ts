@@ -46,13 +46,25 @@ function attachClearButtons(clearDataButton: HTMLButtonElement): void {
 
 function attachMobileNavigation(): void {
   const openScreen = (target: string): void => {
+    const dashboard = document.querySelector<HTMLElement>('.app-dashboard');
+    dashboard?.setAttribute('data-active-screen', target);
+
     for (const screen of document.querySelectorAll<HTMLElement>('[data-app-screen]')) {
       screen.classList.toggle('hidden', screen.dataset.appScreen !== target);
     }
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-open-screen]')) {
       button.classList.toggle('active', button.dataset.openScreen === target);
     }
-    document.querySelector<HTMLElement>('.app-dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => {
+      if (target === 'inicio') {
+        document.querySelector<HTMLElement>('.app-dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      document
+        .querySelector<HTMLElement>(`[data-app-screen="${target}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-open-screen]')) {

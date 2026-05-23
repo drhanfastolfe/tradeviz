@@ -9,7 +9,7 @@ export function renderDashboard(dashboard: HTMLElement, emptyState: HTMLElement,
   const { totals } = analysis;
 
   dashboard.innerHTML = `
-    <div class="app-dashboard">
+    <div class="app-dashboard" data-active-screen="inicio">
       <section class="screen-hero app-card" id="screen-home" data-screen="inicio">
         <div>
           <p class="eyebrow">Archivo importado</p>
