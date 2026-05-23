@@ -189,6 +189,12 @@ h1 { font-size: clamp(2.25rem, 12vw, 3.7rem); }
   scroll-margin-top: 88px;
   animation: liftIn 0.22s ease both;
 }
+[data-app-screen="actividad"] {
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+.screen-end-sentinel {
+  height: 1px;
+}
 .app-dashboard[data-active-screen]:not([data-active-screen="inicio"]) .screen-hero,
 .app-dashboard[data-active-screen]:not([data-active-screen="inicio"]) .summary-strip {
   display: none;

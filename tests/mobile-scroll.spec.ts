@@ -19,6 +19,7 @@ function buildMobileCsv(): string {
 }
 
 test('mobile: análisis y actividad hacen scroll vertical sin overflow horizontal global', async ({ page }) => {
+  await page.addStyleTag({ content: 'html, body, * { scroll-behavior: auto !important; }' });
   await page.goto('./');
 
   await page.locator('#csv-input').setInputFiles({
@@ -40,18 +41,26 @@ test('mobile: análisis y actividad hacen scroll vertical sin overflow horizonta
   expect(hasNoHorizontalOverflow).toBeTruthy();
 
   await page.locator('[data-open-screen="actividad"]').last().click();
+  await expect(page.locator('.app-dashboard[data-active-screen="actividad"]')).toBeVisible();
   const activityScreen = page.locator('[data-app-screen="actividad"]');
   await expect(activityScreen).toBeVisible();
 
   const activityBottomVisible = await page.evaluate(() => {
-    const activity = document.querySelector<HTMLElement>('[data-app-screen="actividad"]');
+    const sentinel = document.querySelector<HTMLElement>('[data-screen-end="actividad"]');
     const nav = document.querySelector<HTMLElement>('.bottom-nav');
-    if (!activity || !nav) return false;
+    if (!sentinel || !nav) return false;
 
-    activity.scrollIntoView({ block: 'start' });
-    window.scrollBy({ top: 100000, behavior: 'auto' });
+    sentinel.scrollIntoView({ block: 'end' });
 
-    const rect = activity.getBoundingClientRect();
+    const rect = sentinel.getBoundingClientRect();
+    const navRect = nav.getBoundingClientRect();
+    return rect.bottom <= navRect.top + 1;
+  });
+  await page.waitForFunction(() => {
+    const sentinel = document.querySelector<HTMLElement>('[data-screen-end="actividad"]');
+    const nav = document.querySelector<HTMLElement>('.bottom-nav');
+    if (!sentinel || !nav) return false;
+    const rect = sentinel.getBoundingClientRect();
     const navRect = nav.getBoundingClientRect();
     return rect.bottom <= navRect.top + 1;
   });
