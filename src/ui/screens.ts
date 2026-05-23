@@ -56,6 +56,7 @@ export function activityScreen(analysis: Analysis): string {
   return `<section class="app-screen hidden" data-app-screen="actividad">
     <section class="panel"><h3>Ganancias/pérdidas realizadas por venta</h3>${realizedTable(analysis.realizedTrades)}</section>
     <section class="panel"><h3>Transacciones importadas</h3>${transactionsTable(analysis.transactions)}</section>
+    <div class="screen-end-sentinel" data-screen-end="actividad" aria-hidden="true"></div>
   </section>`;
 }
 
