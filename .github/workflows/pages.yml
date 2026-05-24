@@ -7,12 +7,6 @@ on:
       - master
 
   workflow_dispatch:
-    inputs:
-      deploy_ref:
-        description: "Branch, tag or commit SHA to deploy"
-        required: true
-        default: "master"
-        type: string
 
 permissions:
   contents: read
@@ -28,19 +22,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Resolve ref
-        id: ref
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ref=${{ inputs.deploy_ref }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.ref.outputs.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
